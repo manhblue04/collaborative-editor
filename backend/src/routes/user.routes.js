@@ -2,19 +2,21 @@ import { Router } from "express";
 import {
   getAllUsers,
   getUserById,
-  updateUser,
-  deleteUser,
+  searchUsers,
 } from "../controllers/user.controller.js";
-import { authenticate, authorize } from "../middlewares/auth.middleware.js";
+import { authenticate } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-// Tất cả các routes đều yêu cầu đăng nhập
 router.use(authenticate);
 
-router.get("/", authorize("admin"), getAllUsers);
+// Search users by email (for sharing)
+router.get("/search", searchUsers);
+
+// Get all users
+router.get("/", getAllUsers);
+
+// Get single user
 router.get("/:id", getUserById);
-router.put("/:id", updateUser);
-router.delete("/:id", authorize("admin"), deleteUser);
 
 export default router;

@@ -35,4 +35,9 @@ export const documentService = {
     const { data } = await api.get(`/documents/${id}/permissions`);
     return data;
   },
+
+  async revokeShare(docId, userId) {
+    const { data } = await api.delete(`/documents/${docId}/share/${userId}`);
+    return data;
+  },
 };
