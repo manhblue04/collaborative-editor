@@ -9,9 +9,17 @@ export function useSocket(provider, user) {
     if (!provider) return;
 
     const statusHandler = ({ status }) => setConnectionStatus(status);
-    provider.on('status', statusHandler);
+    const errorHandler = () => setConnectionStatus('disconnected');
 
-    return () => provider.off('status', statusHandler);
+    provider.on('status', statusHandler);
+    provider.on('connection-error', errorHandler);
+    provider.on('connection-close', errorHandler);
+
+    return () => {
+      provider.off('status', statusHandler);
+      provider.off('connection-error', errorHandler);
+      provider.off('connection-close', errorHandler);
+    };
   }, [provider]);
 
   useEffect(() => {
@@ -25,15 +33,11 @@ export function useSocket(provider, user) {
   }, [provider]);
 
   const disconnect = useCallback(() => {
-    if (provider) {
-      provider.disconnect();
-    }
+    if (provider) provider.disconnect();
   }, [provider]);
 
   const reconnect = useCallback(() => {
-    if (provider) {
-      provider.connect();
-    }
+    if (provider) provider.connect();
   }, [provider]);
 
   return { onlineUsers, connectionStatus, disconnect, reconnect };

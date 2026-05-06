@@ -1,17 +1,37 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Button,
+  Card,
+  Modal,
+  Form,
+  Input,
+  Empty,
+  Skeleton,
+  Tag,
+  Dropdown,
+  Typography,
+  App as AntdApp,
+} from 'antd';
+import {
+  PlusOutlined,
+  FileTextOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  MoreOutlined,
+  CrownFilled,
+} from '@ant-design/icons';
 import useDocumentStore from '../store/documentStore';
 import { useAuth } from '../hooks/useAuth';
 import Navbar from '../components/layout/Navbar';
-import Button from '../components/common/Button';
-import Modal from '../components/common/Modal';
-import Input from '../components/common/Input';
 import { formatDate } from '../utils/helpers';
-import { FiPlus, FiFileText, FiTrash2, FiEdit3 } from 'react-icons/fi';
+
+const { Title, Text, Paragraph } = Typography;
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { user } = useAuth(true);
+  useAuth(true);
+  const { modal, message } = AntdApp.useApp();
   const {
     documents,
     loading,
@@ -21,55 +41,72 @@ export default function DashboardPage() {
     updateDocument,
   } = useDocumentStore();
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [renameId, setRenameId] = useState(null);
-  const [renameTitle, setRenameTitle] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [renameDoc, setRenameDoc] = useState(null);
+  const [createForm] = Form.useForm();
+  const [renameForm] = Form.useForm();
 
   useEffect(() => {
     fetchDocuments();
   }, [fetchDocuments]);
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    const doc = await createDocument(newTitle || 'Untitled Document');
+  const handleCreate = async ({ title }) => {
+    const doc = await createDocument(title || 'Untitled Document');
     if (doc) {
-      setShowCreate(false);
-      setNewTitle('');
+      setCreateOpen(false);
+      createForm.resetFields();
       navigate(`/documents/${doc.id}`);
     }
   };
 
-  const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this document?')) {
-      await deleteDocument(id);
-    }
+  const handleRename = async ({ title }) => {
+    if (!renameDoc) return;
+    await updateDocument(renameDoc.id, { title });
+    setRenameDoc(null);
+    renameForm.resetFields();
+    message.success('Document renamed');
   };
 
-  const handleRename = async (e) => {
-    e.preventDefault();
-    if (renameId && renameTitle.trim()) {
-      await updateDocument(renameId, { title: renameTitle });
-      setRenameId(null);
-      setRenameTitle('');
-    }
+  const handleDelete = (doc) => {
+    modal.confirm({
+      title: 'Delete document?',
+      content: `"${doc.title}" will be permanently deleted.`,
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        const ok = await deleteDocument(doc.id);
+        if (ok) message.success('Document deleted');
+      },
+    });
+  };
+
+  const roleColor = {
+    owner: 'gold',
+    editor: 'blue',
+    viewer: 'default',
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Navbar />
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 flex items-center justify-between">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Documents</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <Title level={2} className="!mb-1">
+              My Documents
+            </Title>
+            <Text type="secondary">
               Create and manage your collaborative documents
-            </p>
+            </Text>
           </div>
-          <Button onClick={() => setShowCreate(true)} size="md">
-            <FiPlus className="mr-2 h-4 w-4" />
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={() => setCreateOpen(true)}
+          >
             New Document
           </Button>
         </div>
@@ -77,136 +114,186 @@ export default function DashboardPage() {
         {loading && !documents.length ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="h-32 animate-pulse rounded-xl bg-white shadow-sm ring-1 ring-gray-100"
-              >
-                <div className="p-5">
-                  <div className="h-4 w-2/3 rounded bg-gray-200" />
-                  <div className="mt-3 h-3 w-1/3 rounded bg-gray-100" />
-                </div>
-              </div>
+              <Card key={i}>
+                <Skeleton active paragraph={{ rows: 2 }} />
+              </Card>
             ))}
           </div>
         ) : documents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16">
-            <FiFileText className="mb-4 h-12 w-12 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900">No documents yet</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Create your first document to start collaborating
-            </p>
-            <Button onClick={() => setShowCreate(true)} className="mt-6">
-              <FiPlus className="mr-2 h-4 w-4" />
-              Create Document
-            </Button>
+          <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white py-16">
+            <Empty
+              image={<FileTextOutlined style={{ fontSize: 64, color: '#d1d5db' }} />}
+              styles={{ image: { height: 80 } }}
+              description={
+                <div className="text-gray-500">
+                  <div className="text-lg font-medium text-gray-900 mb-1">
+                    No documents yet
+                  </div>
+                  <div className="text-sm">
+                    Create your first document to start collaborating
+                  </div>
+                </div>
+              }
+            >
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setCreateOpen(true)}
+              >
+                Create Document
+              </Button>
+            </Empty>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                onClick={() => navigate(`/documents/${doc.id}`)}
-                className="group cursor-pointer rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100 transition-all hover:shadow-md hover:ring-primary-200"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="truncate text-sm font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
-                      {doc.title}
-                    </h3>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {formatDate(doc.updatedAt || doc.createdAt)}
-                    </p>
-                  </div>
-                  <FiFileText className="ml-3 h-5 w-5 shrink-0 text-gray-300 group-hover:text-primary-400 transition-colors" />
-                </div>
+            {documents.map((doc) => {
+              const menuItems = [
+                doc.role === 'owner' && {
+                  key: 'rename',
+                  icon: <EditOutlined />,
+                  label: 'Rename',
+                  onClick: ({ domEvent }) => {
+                    domEvent.stopPropagation();
+                    setRenameDoc(doc);
+                    renameForm.setFieldsValue({ title: doc.title });
+                  },
+                },
+                doc.role === 'owner' && {
+                  key: 'delete',
+                  icon: <DeleteOutlined />,
+                  label: 'Delete',
+                  danger: true,
+                  onClick: ({ domEvent }) => {
+                    domEvent.stopPropagation();
+                    handleDelete(doc);
+                  },
+                },
+              ].filter(Boolean);
 
-                <div className="mt-4 flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setRenameId(doc.id);
-                      setRenameTitle(doc.title);
-                    }}
-                    className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                    title="Rename"
-                  >
-                    <FiEdit3 size={14} />
-                  </button>
-                  <button
-                    onClick={(e) => handleDelete(doc.id, e)}
-                    className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                    title="Delete"
-                  >
-                    <FiTrash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              return (
+                <Card
+                  key={doc.id}
+                  hoverable
+                  onClick={() => navigate(`/documents/${doc.id}`)}
+                  className="!transition-all"
+                  styles={{ body: { padding: 18 } }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                        <FileTextOutlined style={{ fontSize: 18 }} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Paragraph
+                          className="!mb-1 !font-semibold !text-gray-900"
+                          ellipsis
+                        >
+                          {doc.title}
+                        </Paragraph>
+                        <Text type="secondary" className="!text-xs">
+                          {formatDate(doc.updatedAt || doc.createdAt)}
+                        </Text>
+                      </div>
+                    </div>
+
+                    {menuItems.length > 0 && (
+                      <Dropdown
+                        menu={{ items: menuItems }}
+                        trigger={['click']}
+                        placement="bottomRight"
+                      >
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<MoreOutlined />}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </Dropdown>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between">
+                    <Tag
+                      color={roleColor[doc.role]}
+                      icon={doc.role === 'owner' ? <CrownFilled /> : null}
+                      className="!m-0"
+                    >
+                      {doc.role}
+                    </Tag>
+                    {doc.collaborators?.length > 0 && (
+                      <Text type="secondary" className="!text-xs">
+                        {doc.collaborators.length} collaborator
+                        {doc.collaborators.length > 1 ? 's' : ''}
+                      </Text>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         )}
       </main>
 
       <Modal
-        isOpen={showCreate}
-        onClose={() => {
-          setShowCreate(false);
-          setNewTitle('');
-        }}
         title="Create New Document"
+        open={createOpen}
+        onCancel={() => {
+          setCreateOpen(false);
+          createForm.resetFields();
+        }}
+        footer={null}
+        destroyOnHidden
       >
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Input
-            label="Document Title"
-            placeholder="Untitled Document"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            autoFocus
-          />
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowCreate(false);
-                setNewTitle('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" loading={loading}>
+        <Form
+          form={createForm}
+          layout="vertical"
+          onFinish={handleCreate}
+          requiredMark={false}
+          className="!mt-4"
+        >
+          <Form.Item label="Document Title" name="title">
+            <Input placeholder="Untitled Document" autoFocus size="large" />
+          </Form.Item>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button type="primary" htmlType="submit" loading={loading}>
               Create
             </Button>
           </div>
-        </form>
+        </Form>
       </Modal>
 
       <Modal
-        isOpen={!!renameId}
-        onClose={() => {
-          setRenameId(null);
-          setRenameTitle('');
-        }}
         title="Rename Document"
+        open={!!renameDoc}
+        onCancel={() => {
+          setRenameDoc(null);
+          renameForm.resetFields();
+        }}
+        footer={null}
+        destroyOnHidden
       >
-        <form onSubmit={handleRename} className="space-y-4">
-          <Input
+        <Form
+          form={renameForm}
+          layout="vertical"
+          onFinish={handleRename}
+          requiredMark={false}
+          className="!mt-4"
+        >
+          <Form.Item
             label="New Title"
-            value={renameTitle}
-            onChange={(e) => setRenameTitle(e.target.value)}
-            autoFocus
-          />
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setRenameId(null);
-                setRenameTitle('');
-              }}
-            >
-              Cancel
+            name="title"
+            rules={[{ required: true, message: 'Title is required' }]}
+          >
+            <Input autoFocus size="large" />
+          </Form.Item>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setRenameDoc(null)}>Cancel</Button>
+            <Button type="primary" htmlType="submit">
+              Rename
             </Button>
-            <Button type="submit">Rename</Button>
           </div>
-        </form>
+        </Form>
       </Modal>
     </div>
   );

@@ -11,29 +11,41 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { createYDoc, destroyYDoc } from '../yjs/yjsConfig';
 import { createWebsocketProvider, destroyProvider } from '../yjs/provider';
 import { useSocket } from './useSocket';
+import useAuthStore from '../store/authStore';
 
-export function useCollaborativeEditor(documentId, user) {
+const baseExtensions = [
+  Highlight,
+  TaskList,
+  TaskItem.configure({ nested: true }),
+  Underline,
+];
+
+export function useCollaborativeEditor(documentId, user, options = {}) {
+  const { canEdit = true } = options;
+  const token = useAuthStore((s) => s.token);
   const [isReady, setIsReady] = useState(false);
   const ydocRef = useRef(null);
   const providerRef = useRef(null);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (!documentId) return;
+    if (!documentId || !token) return;
 
     const ydoc = createYDoc();
-    const provider = createWebsocketProvider(ydoc, documentId);
+    const provider = createWebsocketProvider(ydoc, documentId, token);
 
     ydocRef.current = ydoc;
     providerRef.current = provider;
 
-    provider.on('sync', (isSynced) => {
+    const syncHandler = (isSynced) => {
       if (isSynced) setIsReady(true);
-    });
+    };
+    provider.on('sync', syncHandler);
 
     setInitialized(true);
 
     return () => {
+      provider.off('sync', syncHandler);
       setInitialized(false);
       setIsReady(false);
       destroyProvider(provider);
@@ -41,7 +53,7 @@ export function useCollaborativeEditor(documentId, user) {
       ydocRef.current = null;
       providerRef.current = null;
     };
-  }, [documentId]);
+  }, [documentId, token]);
 
   const { onlineUsers, connectionStatus, disconnect, reconnect } = useSocket(
     providerRef.current,
@@ -53,10 +65,7 @@ export function useCollaborativeEditor(documentId, user) {
       extensions: initialized
         ? [
             StarterKit.configure({ history: false }),
-            Highlight,
-            TaskList,
-            TaskItem.configure({ nested: true }),
-            Underline,
+            ...baseExtensions,
             Placeholder.configure({ placeholder: 'Start writing...' }),
             Collaboration.configure({ document: ydocRef.current }),
             CollaborationCursor.configure({
@@ -68,20 +77,18 @@ export function useCollaborativeEditor(documentId, user) {
           ]
         : [
             StarterKit,
-            Highlight,
-            TaskList,
-            TaskItem.configure({ nested: true }),
-            Underline,
+            ...baseExtensions,
             Placeholder.configure({ placeholder: 'Loading...' }),
           ],
+      editable: initialized && canEdit,
       editorProps: {
         attributes: {
-          class: 'prose prose-sm sm:prose lg:prose-lg focus:outline-none max-w-none',
+          class:
+            'prose prose-sm sm:prose lg:prose-lg focus:outline-none max-w-none',
         },
       },
-      editable: initialized,
     },
-    [documentId, initialized]
+    [documentId, initialized, canEdit]
   );
 
   return {

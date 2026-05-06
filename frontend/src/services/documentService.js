@@ -26,13 +26,23 @@ export const documentService = {
     return data;
   },
 
-  async share(id, userId, role) {
-    const { data } = await api.post(`/documents/${id}/share`, { userId, role });
+  async share(id, payload) {
+    const { data } = await api.post(`/documents/${id}/share`, payload);
     return data;
   },
 
   async getPermissions(id) {
     const { data } = await api.get(`/documents/${id}/permissions`);
+    return data;
+  },
+
+  async revokePermission(id, userId) {
+    const { data } = await api.delete(`/documents/${id}/share/${userId}`);
+    return data;
+  },
+
+  async getState(id) {
+    const { data } = await api.get(`/documents/${id}/state`);
     return data;
   },
 };

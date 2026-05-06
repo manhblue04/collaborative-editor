@@ -1,116 +1,189 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { Form, Input, Button, Card, Tabs, Alert, Typography } from 'antd';
+import { MailOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import useAuthStore from '../store/authStore';
-import Button from '../components/common/Button';
-import Input from '../components/common/Input';
+
+const { Title, Text } = Typography;
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login, register, loading, error, clearError } = useAuthStore();
-  const [isRegister, setIsRegister] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [tab, setTab] = useState('login');
 
-  const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    if (error) clearError();
+  const handleLogin = async (values) => {
+    const ok = await login(values.email, values.password);
+    if (ok) navigate('/dashboard');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    let success;
-
-    if (isRegister) {
-      success = await register(form.name, form.email, form.password);
-      if (success) {
-        success = await login(form.email, form.password);
-      }
-    } else {
-      success = await login(form.email, form.password);
+  const handleRegister = async (values) => {
+    const ok = await register(values.name, values.email, values.password);
+    if (ok) {
+      const ok2 = await login(values.email, values.password);
+      if (ok2) navigate('/dashboard');
     }
-
-    if (success) navigate('/dashboard');
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 via-white to-blue-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-100 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-white font-bold text-xl shadow-lg shadow-primary-200">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold text-2xl shadow-lg shadow-blue-200">
             CE
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">CollabEdit</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Collaborative document editing in real-time
-          </p>
+          <Title level={2} className="!mb-1">
+            CollabEdit
+          </Title>
+          <Text type="secondary">Collaborative document editing in real-time</Text>
         </div>
 
-        <div className="rounded-2xl bg-white p-8 shadow-xl shadow-gray-200/50 ring-1 ring-gray-100">
-          <h2 className="mb-6 text-xl font-semibold text-gray-900">
-            {isRegister ? 'Create an account' : 'Welcome back'}
-          </h2>
-
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-100">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isRegister && (
-              <Input
-                label="Full Name"
-                name="name"
-                type="text"
-                placeholder="John Doe"
-                value={form.name}
-                onChange={handleChange}
-                required
-              />
-            )}
-            <Input
-              label="Email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              value={form.email}
-              onChange={handleChange}
-              required
-            />
-            <Input
-              label="Password"
-              name="password"
-              type="password"
-              placeholder="Enter your password"
-              value={form.password}
-              onChange={handleChange}
-              required
-              minLength={6}
-            />
-            <Button
-              type="submit"
-              loading={loading}
-              className="w-full"
-              size="lg"
-            >
-              {isRegister ? 'Create Account' : 'Sign In'}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsRegister(!isRegister);
-                clearError();
-              }}
-              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-            >
-              {isRegister
-                ? 'Already have an account? Sign in'
-                : "Don't have an account? Register"}
-            </button>
-          </div>
-        </div>
+        <Card className="!shadow-xl !border-0" styles={{ body: { padding: 28 } }}>
+          <Tabs
+            activeKey={tab}
+            onChange={(k) => {
+              setTab(k);
+              clearError();
+            }}
+            centered
+            items={[
+              {
+                key: 'login',
+                label: 'Sign In',
+                children: (
+                  <>
+                    {error && tab === 'login' && (
+                      <Alert
+                        message={error}
+                        type="error"
+                        showIcon
+                        closable
+                        onClose={clearError}
+                        className="!mb-4"
+                      />
+                    )}
+                    <Form
+                      layout="vertical"
+                      onFinish={handleLogin}
+                      requiredMark={false}
+                      autoComplete="off"
+                    >
+                      <Form.Item
+                        label="Email"
+                        name="email"
+                        rules={[
+                          { required: true, message: 'Email is required' },
+                          { type: 'email', message: 'Invalid email' },
+                        ]}
+                      >
+                        <Input
+                          size="large"
+                          prefix={<MailOutlined className="!text-gray-400" />}
+                          placeholder="you@example.com"
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        label="Password"
+                        name="password"
+                        rules={[{ required: true, message: 'Password is required' }]}
+                      >
+                        <Input.Password
+                          size="large"
+                          prefix={<LockOutlined className="!text-gray-400" />}
+                          placeholder="Enter password"
+                        />
+                      </Form.Item>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        block
+                        size="large"
+                        loading={loading}
+                      >
+                        Sign In
+                      </Button>
+                    </Form>
+                  </>
+                ),
+              },
+              {
+                key: 'register',
+                label: 'Register',
+                children: (
+                  <>
+                    {error && tab === 'register' && (
+                      <Alert
+                        message={error}
+                        type="error"
+                        showIcon
+                        closable
+                        onClose={clearError}
+                        className="!mb-4"
+                      />
+                    )}
+                    <Form
+                      layout="vertical"
+                      onFinish={handleRegister}
+                      requiredMark={false}
+                      autoComplete="off"
+                    >
+                      <Form.Item
+                        label="Full Name"
+                        name="name"
+                        rules={[
+                          { required: true, message: 'Name is required' },
+                          { min: 2, message: 'At least 2 characters' },
+                        ]}
+                      >
+                        <Input
+                          size="large"
+                          prefix={<UserOutlined className="!text-gray-400" />}
+                          placeholder="John Doe"
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        label="Email"
+                        name="email"
+                        rules={[
+                          { required: true, message: 'Email is required' },
+                          { type: 'email', message: 'Invalid email' },
+                        ]}
+                      >
+                        <Input
+                          size="large"
+                          prefix={<MailOutlined className="!text-gray-400" />}
+                          placeholder="you@example.com"
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        label="Password"
+                        name="password"
+                        rules={[
+                          { required: true, message: 'Password is required' },
+                          { min: 6, message: 'At least 6 characters' },
+                        ]}
+                      >
+                        <Input.Password
+                          size="large"
+                          prefix={<LockOutlined className="!text-gray-400" />}
+                          placeholder="At least 6 characters"
+                        />
+                      </Form.Item>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        block
+                        size="large"
+                        loading={loading}
+                      >
+                        Create Account
+                      </Button>
+                    </Form>
+                  </>
+                ),
+              },
+            ]}
+          />
+        </Card>
       </div>
     </div>
   );

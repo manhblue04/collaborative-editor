@@ -9,7 +9,7 @@ export function getYXmlFragment(ydoc, fieldName = 'default') {
 }
 
 export function destroyYDoc(ydoc) {
-  if (ydoc) {
+  if (ydoc && typeof ydoc.destroy === 'function') {
     ydoc.destroy();
   }
 }

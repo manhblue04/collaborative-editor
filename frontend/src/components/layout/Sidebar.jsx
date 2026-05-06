@@ -1,49 +1,63 @@
+import { Avatar, Badge, List, Typography, Tag } from 'antd';
 import { getInitials } from '../../utils/helpers';
 
-export default function Sidebar({ onlineUsers = [], connectionStatus }) {
-  const statusColors = {
-    connected: 'bg-green-500',
-    connecting: 'bg-yellow-500',
-    disconnected: 'bg-red-500',
-  };
+const { Text } = Typography;
+
+const statusBadgeStatus = {
+  connected: 'success',
+  connecting: 'processing',
+  disconnected: 'error',
+};
+
+export default function Sidebar({ onlineUsers = [], connectionStatus, currentUser, role }) {
+  const items = [
+    currentUser && { ...currentUser, isMe: true, clientId: 'me' },
+    ...onlineUsers.map((u) => ({ ...u, isMe: false })),
+  ].filter(Boolean);
 
   return (
-    <aside className="w-64 shrink-0 border-l border-gray-200 bg-white p-4">
-      <div className="mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <div
-            className={`h-2 w-2 rounded-full ${statusColors[connectionStatus] || 'bg-gray-400'}`}
-          />
-          <span className="text-xs font-medium text-gray-500 capitalize">
+    <aside className="hidden lg:flex w-64 shrink-0 flex-col border-l border-gray-200 bg-white">
+      <div className="border-b border-gray-100 p-4">
+        <div className="mb-2 flex items-center gap-2">
+          <Badge status={statusBadgeStatus[connectionStatus] || 'default'} />
+          <Text strong className="!text-sm capitalize">
             {connectionStatus}
-          </span>
+          </Text>
         </div>
+        {role && (
+          <Tag color={role === 'owner' ? 'gold' : role === 'editor' ? 'blue' : 'default'}>
+            Your role: {role}
+          </Tag>
+        )}
       </div>
 
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-          Online Users ({onlineUsers.length + 1})
-        </h3>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-2">
-            <div className="h-2 w-2 rounded-full bg-green-500" />
-            <span className="text-sm font-medium text-primary-700">You</span>
-          </div>
-          {onlineUsers.map((u) => (
-            <div
-              key={u.clientId}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors"
-            >
-              <div
-                className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-medium text-white"
-                style={{ backgroundColor: u.color }}
-              >
-                {getInitials(u.name)}
-              </div>
-              <span className="text-sm text-gray-700 truncate">{u.name}</span>
-            </div>
-          ))}
-        </div>
+      <div className="flex-1 overflow-y-auto p-4">
+        <Text type="secondary" className="!text-xs !uppercase !tracking-wider !font-semibold">
+          Online ({items.length})
+        </Text>
+
+        <List
+          className="!mt-2"
+          itemLayout="horizontal"
+          dataSource={items}
+          renderItem={(u) => (
+            <List.Item className={u.isMe ? '!bg-blue-50 !rounded-lg !px-2' : '!px-2'}>
+              <List.Item.Meta
+                avatar={
+                  <Avatar size="small" style={{ backgroundColor: u.color }}>
+                    {getInitials(u.name)}
+                  </Avatar>
+                }
+                title={
+                  <Text className="!text-sm">
+                    {u.name}
+                    {u.isMe && <Tag className="!ml-2 !text-[10px]">You</Tag>}
+                  </Text>
+                }
+              />
+            </List.Item>
+          )}
+        />
       </div>
     </aside>
   );
