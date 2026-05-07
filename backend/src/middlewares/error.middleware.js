@@ -1,27 +1,27 @@
 const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
-  let message = err.message || "Internal Server Error";
+  let error = err.message || "Internal Server Error";
 
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
-    message = `${field.charAt(0).toUpperCase() + field.slice(1)} already exists.`;
+    error = `${field.charAt(0).toUpperCase() + field.slice(1)} already exists.`;
     statusCode = 409;
   }
 
   if (err.name === "ValidationError") {
-    message = Object.values(err.errors)
+    error = Object.values(err.errors)
       .map((e) => e.message)
       .join(", ");
     statusCode = 400;
   }
 
   if (err.name === "CastError") {
-    message = `Invalid ${err.path}: ${err.value}`;
+    error = `Invalid ${err.path}: ${err.value}`;
     statusCode = 400;
   }
 
   res.status(statusCode).json({
-    message,
+    error,
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };

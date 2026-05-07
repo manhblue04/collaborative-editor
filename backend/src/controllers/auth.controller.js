@@ -11,11 +11,17 @@ const formatUser = (user) => ({
   id: user._id,
   name: user.name,
   email: user.email,
+  role: user.role,
 });
 
 export const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Please provide name, email and password." });
+    }
     const user = await User.create({ name, email, password });
 
     res.status(201).json({
@@ -32,12 +38,14 @@ export const login = async (req, res, next) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Please provide email and password." });
+      return res
+        .status(400)
+        .json({ error: "Please provide email and password." });
     }
 
     const user = await User.findOne({ email }).select("+password");
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: "Invalid email or password." });
+      return res.status(401).json({ error: "Invalid email or password." });
     }
 
     const token = generateToken(user._id);

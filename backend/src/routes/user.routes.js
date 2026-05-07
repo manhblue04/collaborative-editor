@@ -9,7 +9,6 @@ import { authenticate, authorize } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-// Tất cả các routes đều yêu cầu đăng nhập
 router.use(authenticate);
 
 router.get("/", authorize("admin"), getAllUsers);
