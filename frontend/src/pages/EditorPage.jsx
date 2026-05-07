@@ -1,44 +1,70 @@
-import { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Input, Tag, Alert, Tooltip, Spin, App as AntdApp } from 'antd';
-import {
-  ArrowLeftOutlined,
-  ShareAltOutlined,
-  WifiOutlined,
-  DisconnectOutlined,
-  EyeOutlined,
-  EditOutlined,
-  CrownFilled,
-} from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import useDocumentStore from '../store/documentStore';
 import { useAuth } from '../hooks/useAuth';
 import { useCollaborativeEditor } from '../hooks/useEditor';
 import EditorWrapper from '../components/editor/EditorWrapper';
 import Sidebar from '../components/layout/Sidebar';
 import UserCursors from '../components/editor/UserCursor';
-import ShareModal from '../components/editor/ShareModal';
 import { debounce } from '../utils/debounce';
+import {
+  FiArrowLeft,
+  FiWifi,
+  FiWifiOff,
+  FiUsers,
+  FiShare2,
+  FiEye,
+  FiEdit3,
+  FiShield,
+} from 'react-icons/fi';
+
+function RolePill({ role }) {
+  const config = {
+    owner: {
+      icon: FiShield,
+      label: 'Owner',
+      className: 'bg-purple-100 text-purple-700',
+    },
+    editor: {
+      icon: FiEdit3,
+      label: 'Editor',
+      className: 'bg-blue-100 text-blue-700',
+    },
+    viewer: {
+      icon: FiEye,
+      label: 'View only',
+      className: 'bg-gray-100 text-gray-600',
+    },
+  };
+
+  const c = config[role] || config.viewer;
+  const Icon = c.icon;
+
+  return (
+    <div
+      className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${c.className}`}
+    >
+      <Icon size={12} />
+      <span>{c.label}</span>
+    </div>
+  );
+}
 
 export default function EditorPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuth(true);
-  const { message } = AntdApp.useApp();
   const { currentDocument, fetchDocument, updateDocument, clearCurrent } =
     useDocumentStore();
 
   const [title, setTitle] = useState('');
-  const [shareOpen, setShareOpen] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
-  const role = currentDocument?.role || 'viewer';
-  const canEdit = role === 'owner' || role === 'editor';
-  const isOwner = role === 'owner';
-
-  const { editor, isReady, onlineUsers, connectionStatus } = useCollaborativeEditor(
-    id,
-    user,
-    { canEdit }
-  );
+  const {
+    editor,
+    isReady,
+    onlineUsers,
+    connectionStatus,
+  } = useCollaborativeEditor(id, user);
 
   useEffect(() => {
     if (id) fetchDocument(id);
@@ -46,148 +72,125 @@ export default function EditorPage() {
   }, [id, fetchDocument, clearCurrent]);
 
   useEffect(() => {
-    if (currentDocument) setTitle(currentDocument.title);
+    if (currentDocument) {
+      setTitle(currentDocument.title);
+    }
   }, [currentDocument]);
 
-  const debouncedUpdateTitle = useMemo(
-    () =>
-      debounce((newTitle) => {
-        if (id && newTitle.trim()) {
-          updateDocument(id, { title: newTitle });
-        }
-      }, 800),
-    [id, updateDocument]
-  );
+  // Set editor editable based on role
+  useEffect(() => {
+    if (editor && currentDocument) {
+      const isViewer = currentDocument.role === 'viewer';
+      editor.setEditable(!isViewer);
+    }
+  }, [editor, currentDocument]);
+
+  const debouncedUpdateTitle = debounce((newTitle) => {
+    if (id && newTitle.trim()) {
+      updateDocument(id, { title: newTitle });
+    }
+  }, 800);
 
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
-    if (canEdit) debouncedUpdateTitle(newTitle);
+    debouncedUpdateTitle(newTitle);
   };
 
-  const roleConfig = {
-    owner: { color: 'gold', icon: <CrownFilled />, label: 'Owner' },
-    editor: { color: 'blue', icon: <EditOutlined />, label: 'Editor' },
-    viewer: { color: 'default', icon: <EyeOutlined />, label: 'Viewer' },
-  };
+  const canEdit =
+    currentDocument?.role === 'owner' || currentDocument?.role === 'editor';
 
-  if (!currentDocument) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Spin size="large" tip="Loading document..." />
-      </div>
-    );
-  }
+  const connectionDot =
+    connectionStatus === 'connected'
+      ? 'bg-emerald-500'
+      : connectionStatus === 'connecting'
+      ? 'bg-amber-500'
+      : 'bg-red-500';
 
   return (
     <div className="flex h-screen flex-col bg-gray-50">
       {/* Header */}
-      <header className="z-20 flex items-center justify-between border-b border-gray-200 bg-white px-3 py-2 shadow-sm">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Tooltip title="Back to dashboard">
-            <Button
-              type="text"
-              icon={<ArrowLeftOutlined />}
-              onClick={() => navigate('/dashboard')}
-            />
-          </Tooltip>
-
-          <Input
-            value={title}
-            onChange={handleTitleChange}
-            disabled={!canEdit}
-            variant="borderless"
-            className="!min-w-0 !flex-1 !text-base !font-semibold"
-            placeholder="Untitled Document"
-          />
-
-          <Tag
-            color={roleConfig[role].color}
-            icon={roleConfig[role].icon}
-            className="!hidden sm:!inline-flex !items-center"
+      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2 shadow-sm">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <Link
+            to="/dashboard"
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            title="Back to dashboard"
           >
-            {roleConfig[role].label}
-          </Tag>
+            <FiArrowLeft size={20} />
+          </Link>
+
+          <div className="min-w-0 flex-1">
+            <input
+              type="text"
+              value={title}
+              onChange={handleTitleChange}
+              disabled={!canEdit}
+              className="w-full border-none bg-transparent text-lg font-semibold text-gray-900 outline-none placeholder-gray-400 focus:ring-0 disabled:cursor-default disabled:text-gray-700"
+              placeholder="Untitled Document"
+            />
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 ml-2">
-          <Tooltip title={`Connection: ${connectionStatus}`}>
-            <span className="flex items-center gap-1 px-2 py-1 rounded-md text-xs">
-              {connectionStatus === 'connected' ? (
-                <WifiOutlined className="!text-green-500" />
-              ) : (
-                <DisconnectOutlined className="!text-red-500" />
-              )}
-              <span className="hidden md:inline text-gray-500 capitalize">
-                {connectionStatus}
-              </span>
-            </span>
-          </Tooltip>
+        <div className="flex items-center gap-2 ml-4 shrink-0">
+          {/* Role Badge */}
+          {currentDocument?.role && <RolePill role={currentDocument.role} />}
 
+          {/* Connection Status */}
+          <div className="flex items-center gap-1.5 px-2" title={connectionStatus}>
+            <div className={`h-2 w-2 rounded-full ${connectionDot}`} />
+            {connectionStatus === 'connected' ? (
+              <FiWifi className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <FiWifiOff className="h-4 w-4 text-red-500" />
+            )}
+          </div>
+
+          {/* Online Users Avatars */}
           <UserCursors users={onlineUsers} />
 
-          {isOwner && (
-            <Button
-              type="primary"
-              icon={<ShareAltOutlined />}
-              onClick={() => setShareOpen(true)}
-            >
-              <span className="hidden sm:inline">Share</span>
-            </Button>
-          )}
+          {/* Toggle Sidebar */}
+          <button
+            onClick={() => setShowSidebar(!showSidebar)}
+            className={`rounded-lg p-1.5 transition-colors ${
+              showSidebar
+                ? 'bg-primary-100 text-primary-700'
+                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+            }`}
+            title="Toggle sidebar"
+          >
+            <FiUsers size={18} />
+          </button>
         </div>
       </header>
 
-      {/* Connection banner */}
-      {connectionStatus !== 'connected' && (
-        <Alert
-          banner
-          type={connectionStatus === 'connecting' ? 'info' : 'warning'}
-          showIcon
-          message={
-            connectionStatus === 'connecting'
-              ? 'Reconnecting...'
-              : 'You are offline. Changes will sync when reconnected.'
-          }
-          className="!py-1.5 !text-xs"
-        />
+      {/* Viewer Banner */}
+      {currentDocument?.role === 'viewer' && (
+        <div className="flex items-center justify-center gap-2 bg-amber-50 border-b border-amber-200 px-4 py-2">
+          <FiEye className="h-4 w-4 text-amber-600" />
+          <span className="text-sm font-medium text-amber-700">
+            You have view-only access to this document
+          </span>
+        </div>
       )}
 
-      {/* Viewer notice */}
-      {role === 'viewer' && (
-        <Alert
-          banner
-          type="info"
-          showIcon
-          icon={<EyeOutlined />}
-          message="You are viewing this document in read-only mode."
-          className="!py-1.5 !text-xs"
-        />
-      )}
-
-      {/* Main */}
+      {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-4xl">
-            <EditorWrapper editor={editor} isReady={isReady} canEdit={canEdit} />
+            <EditorWrapper editor={editor} isReady={isReady} />
           </div>
         </main>
 
-        <Sidebar
-          onlineUsers={onlineUsers}
-          connectionStatus={connectionStatus}
-          currentUser={user}
-          role={role}
-        />
+        {showSidebar && (
+          <Sidebar
+            documentId={id}
+            onlineUsers={onlineUsers}
+            connectionStatus={connectionStatus}
+            userRole={currentDocument?.role}
+          />
+        )}
       </div>
-
-      <ShareModal
-        open={shareOpen}
-        onClose={() => setShareOpen(false)}
-        documentId={id}
-        currentUserId={user?.id}
-        isOwner={isOwner}
-      />
     </div>
   );
 }

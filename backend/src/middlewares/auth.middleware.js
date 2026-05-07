@@ -13,7 +13,9 @@ export const authenticate = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({ error: "Access denied. No token provided." });
+      return res
+        .status(401)
+        .json({ error: "Access denied. No token provided." });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -36,25 +38,14 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
+// Role-based authorization (for admin routes, etc.)
 export const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ error: "Not authenticated." });
-    }
-    if (roles.length && !roles.includes(req.user.role)) {
+    if (!req.user || !roles.includes(req.user.role)) {
       return res
         .status(403)
-        .json({ error: `Forbidden. Required role: ${roles.join(" | ")}` });
+        .json({ error: "Forbidden. Insufficient permissions." });
     }
     next();
   };
-};
-
-export const verifyToken = (token) => {
-  if (!token) return null;
-  try {
-    return jwt.verify(token, process.env.JWT_SECRET);
-  } catch {
-    return null;
-  }
 };

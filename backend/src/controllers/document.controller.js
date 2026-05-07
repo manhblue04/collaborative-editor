@@ -1,75 +1,132 @@
 import Document from "../models/Document.js";
-import User from "../models/User.js";
+import DocumentPermission from "../models/DocumentPermission.js";
 
-const formatDocument = (doc, currentUserId) => ({
-  id: doc._id,
-  title: doc.title,
-  ownerId: doc.ownerId,
-  role: doc.getRole(currentUserId),
-  collaborators: doc.collaborators?.map((c) => ({
-    userId: c.userId,
-    role: c.role,
-  })),
-  createdAt: doc.createdAt,
-  updatedAt: doc.updatedAt,
-});
-
-const findAccessibleDoc = async (id, userId) => {
-  const doc = await Document.findOne({
-    _id: id,
-    $or: [{ ownerId: userId }, { "collaborators.userId": userId }],
-  });
-  return doc;
-};
-
+// ─── Create Document ────────────────────────────────────────────────
 export const createDocument = async (req, res, next) => {
   try {
     const { title = "Untitled Document" } = req.body;
+
     const doc = await Document.create({
       title,
-      ownerId: req.user._id,
+      owner: req.user._id,
     });
-    res.status(201).json(formatDocument(doc, req.user._id));
+
+    // Auto-create owner permission
+    await DocumentPermission.create({
+      documentId: doc._id,
+      userId: req.user._id,
+      role: "owner",
+    });
+
+    res.status(201).json({
+      id: doc._id,
+      title: doc.title,
+      ownerId: doc.owner,
+      createdAt: doc.createdAt,
+    });
   } catch (error) {
     next(error);
   }
 };
 
+// ─── Get Documents (owned + shared) ─────────────────────────────────
 export const getDocuments = async (req, res, next) => {
   try {
-    const userId = req.user._id;
-    const docs = await Document.find({
-      $or: [{ ownerId: userId }, { "collaborators.userId": userId }],
-    }).sort({ updatedAt: -1 });
+    // Find all document IDs the user has access to
+    const permissions = await DocumentPermission.find({
+      userId: req.user._id,
+    });
 
-    res.status(200).json(docs.map((doc) => formatDocument(doc, userId)));
+    const docIds = permissions.map((p) => p.documentId);
+
+    const docs = await Document.find({
+      _id: { $in: docIds },
+      isDeleted: false,
+    })
+      .sort({ updatedAt: -1 })
+      .populate("owner", "name email");
+
+    const permMap = {};
+    permissions.forEach((p) => {
+      permMap[p.documentId.toString()] = p.role;
+    });
+
+    res.status(200).json(
+      docs.map((doc) => ({
+        id: doc._id,
+        title: doc.title,
+        ownerId: doc.owner._id,
+        ownerName: doc.owner.name,
+        role: permMap[doc._id.toString()] || "viewer",
+        updatedAt: doc.updatedAt,
+      }))
+    );
   } catch (error) {
     next(error);
   }
 };
 
+// ─── Get Document By ID (metadata only) ──────────────────────────────
 export const getDocumentById = async (req, res, next) => {
   try {
-    const doc = await findAccessibleDoc(req.params.id, req.user._id);
-    if (!doc) return res.status(404).json({ error: "Document not found." });
-    res.status(200).json(formatDocument(doc, req.user._id));
+    // Check if user has permission
+    const permission = await DocumentPermission.findOne({
+      documentId: req.params.id,
+      userId: req.user._id,
+    });
+
+    if (!permission) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const doc = await Document.findOne({
+      _id: req.params.id,
+      isDeleted: false,
+    }).populate("owner", "name email");
+
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found." });
+    }
+
+    res.status(200).json({
+      id: doc._id,
+      title: doc.title,
+      ownerId: doc.owner._id,
+      ownerName: doc.owner.name,
+      role: permission.role,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    });
   } catch (error) {
     next(error);
   }
 };
 
+// ─── Update Document (title) ─────────────────────────────────────────
 export const updateDocument = async (req, res, next) => {
   try {
-    const doc = await findAccessibleDoc(req.params.id, req.user._id);
-    if (!doc) return res.status(404).json({ error: "Document not found." });
+    const { title } = req.body;
 
-    if (!doc.canEdit(req.user._id)) {
-      return res.status(403).json({ error: "Insufficient permissions." });
+    // Only owner or editor can update
+    const permission = await DocumentPermission.findOne({
+      documentId: req.params.id,
+      userId: req.user._id,
+      role: { $in: ["owner", "editor"] },
+    });
+
+    if (!permission) {
+      return res.status(403).json({ error: "Forbidden" });
     }
 
-    const { title } = req.body;
-    if (title !== undefined) doc.title = title;
-    await doc.save();
+    const doc = await Document.findOneAndUpdate(
+      { _id: req.params.id, isDeleted: false },
+      { title },
+      { new: true, runValidators: true }
+    );
+
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found." });
+    }
 
     res.status(200).json({ message: "Document updated" });
   } catch (error) {
@@ -77,137 +134,160 @@ export const updateDocument = async (req, res, next) => {
   }
 };
 
+// ─── Delete Document (soft delete, owner only) ──────────────────────
 export const deleteDocument = async (req, res, next) => {
   try {
-    const doc = await Document.findOne({
-      _id: req.params.id,
-      ownerId: req.user._id,
+    // Only owner can delete
+    const permission = await DocumentPermission.findOne({
+      documentId: req.params.id,
+      userId: req.user._id,
+      role: "owner",
     });
-    if (!doc) return res.status(404).json({ error: "Document not found." });
 
-    await doc.deleteOne();
+    if (!permission) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const doc = await Document.findByIdAndUpdate(
+      req.params.id,
+      { isDeleted: true },
+      { new: true }
+    );
+
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found." });
+    }
+
     res.status(200).json({ message: "Document deleted" });
   } catch (error) {
     next(error);
   }
 };
 
-export const getDocumentState = async (req, res, next) => {
-  try {
-    const doc = await findAccessibleDoc(req.params.id, req.user._id);
-    if (!doc) return res.status(404).json({ error: "Document not found." });
-
-    res.status(200).json({
-      state: doc.yjsState ? doc.yjsState.toString("base64") : null,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const saveDocumentState = async (req, res, next) => {
-  try {
-    const doc = await findAccessibleDoc(req.params.id, req.user._id);
-    if (!doc) return res.status(404).json({ error: "Document not found." });
-
-    if (!doc.canEdit(req.user._id)) {
-      return res.status(403).json({ error: "Insufficient permissions." });
-    }
-
-    const { state } = req.body;
-    if (!state) return res.status(400).json({ error: "Missing state." });
-
-    doc.yjsState = Buffer.from(state, "base64");
-    await doc.save();
-
-    res.status(200).json({ message: "Document state saved" });
-  } catch (error) {
-    next(error);
-  }
-};
-
+// ─── Share Document ──────────────────────────────────────────────────
 export const shareDocument = async (req, res, next) => {
   try {
-    const { email, userId, role = "editor" } = req.body;
+    const { userId, role } = req.body;
+
+    if (!userId || !role) {
+      return res.status(400).json({ error: "userId and role are required." });
+    }
 
     if (!["editor", "viewer"].includes(role)) {
-      return res.status(400).json({ error: "Invalid role." });
+      return res
+        .status(400)
+        .json({ error: "Role must be 'editor' or 'viewer'." });
     }
 
+    // Only owner can share
+    const ownerPermission = await DocumentPermission.findOne({
+      documentId: req.params.id,
+      userId: req.user._id,
+      role: "owner",
+    });
+
+    if (!ownerPermission) {
+      return res
+        .status(403)
+        .json({ error: "Only the owner can share a document." });
+    }
+
+    // Check document exists
     const doc = await Document.findOne({
       _id: req.params.id,
-      ownerId: req.user._id,
+      isDeleted: false,
     });
-    if (!doc) return res.status(404).json({ error: "Document not found." });
 
-    let target;
-    if (userId) target = await User.findById(userId);
-    else if (email) target = await User.findOne({ email: email.toLowerCase() });
-
-    if (!target) return res.status(404).json({ error: "User not found." });
-    if (target._id.toString() === req.user._id.toString()) {
-      return res.status(400).json({ error: "Cannot share with yourself." });
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found." });
     }
 
-    const existing = doc.collaborators.find(
-      (c) => c.userId.toString() === target._id.toString()
-    );
-    if (existing) existing.role = role;
-    else doc.collaborators.push({ userId: target._id, role });
+    // Cannot share with yourself
+    if (userId === req.user._id.toString()) {
+      return res
+        .status(400)
+        .json({ error: "You cannot change your own owner role." });
+    }
 
-    await doc.save();
-    res.status(200).json({ message: "Permission updated" });
+    // Upsert permission
+    await DocumentPermission.findOneAndUpdate(
+      { documentId: req.params.id, userId },
+      { role },
+      { upsert: true, new: true }
+    );
+
+    res.status(200).json({ message: "Document shared successfully." });
   } catch (error) {
     next(error);
   }
 };
 
-export const getPermissions = async (req, res, next) => {
+// ─── Remove Share / Revoke Permission ────────────────────────────────
+export const removeShare = async (req, res, next) => {
   try {
-    const doc = await Document.findOne({
-      _id: req.params.id,
-      $or: [
-        { ownerId: req.user._id },
-        { "collaborators.userId": req.user._id },
-      ],
-    }).populate("ownerId", "name email").populate("collaborators.userId", "name email");
+    const { userId } = req.params;
 
-    if (!doc) return res.status(404).json({ error: "Document not found." });
+    // Only owner can revoke
+    const ownerPermission = await DocumentPermission.findOne({
+      documentId: req.params.id,
+      userId: req.user._id,
+      role: "owner",
+    });
 
-    const list = [
-      {
-        userId: doc.ownerId._id,
-        name: doc.ownerId.name,
-        email: doc.ownerId.email,
-        role: "owner",
-      },
-      ...doc.collaborators.map((c) => ({
-        userId: c.userId._id,
-        name: c.userId.name,
-        email: c.userId.email,
-        role: c.role,
-      })),
-    ];
+    if (!ownerPermission) {
+      return res
+        .status(403)
+        .json({ error: "Only the owner can revoke access." });
+    }
 
-    res.status(200).json(list);
+    // Cannot remove owner's own permission
+    if (userId === req.user._id.toString()) {
+      return res
+        .status(400)
+        .json({ error: "Cannot remove owner permission." });
+    }
+
+    const deleted = await DocumentPermission.findOneAndDelete({
+      documentId: req.params.id,
+      userId,
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ error: "Permission not found." });
+    }
+
+    res.status(200).json({ message: "Permission revoked." });
   } catch (error) {
     next(error);
   }
 };
 
-export const revokePermission = async (req, res, next) => {
+// ─── Get Document Permissions ────────────────────────────────────────
+export const getDocumentPermissions = async (req, res, next) => {
   try {
-    const doc = await Document.findOne({
-      _id: req.params.id,
-      ownerId: req.user._id,
+    // Only owner/editor can view permissions
+    const permission = await DocumentPermission.findOne({
+      documentId: req.params.id,
+      userId: req.user._id,
+      role: { $in: ["owner", "editor"] },
     });
-    if (!doc) return res.status(404).json({ error: "Document not found." });
 
-    doc.collaborators = doc.collaborators.filter(
-      (c) => c.userId.toString() !== req.params.userId
+    if (!permission) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const permissions = await DocumentPermission.find({
+      documentId: req.params.id,
+    }).populate("userId", "name email");
+
+    res.status(200).json(
+      permissions.map((p) => ({
+        userId: p.userId._id,
+        name: p.userId.name,
+        email: p.userId.email,
+        role: p.role,
+      }))
     );
-    await doc.save();
-    res.status(200).json({ message: "Permission revoked" });
   } catch (error) {
     next(error);
   }

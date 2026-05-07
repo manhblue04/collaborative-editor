@@ -26,8 +26,8 @@ export const documentService = {
     return data;
   },
 
-  async share(id, payload) {
-    const { data } = await api.post(`/documents/${id}/share`, payload);
+  async share(id, userId, role) {
+    const { data } = await api.post(`/documents/${id}/share`, { userId, role });
     return data;
   },
 
@@ -36,13 +36,8 @@ export const documentService = {
     return data;
   },
 
-  async revokePermission(id, userId) {
-    const { data } = await api.delete(`/documents/${id}/share/${userId}`);
-    return data;
-  },
-
-  async getState(id) {
-    const { data } = await api.get(`/documents/${id}/state`);
+  async revokeShare(docId, userId) {
+    const { data } = await api.delete(`/documents/${docId}/share/${userId}`);
     return data;
   },
 };

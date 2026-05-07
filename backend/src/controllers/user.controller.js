@@ -1,54 +1,72 @@
 import User from "../models/User.js";
 
-export const getAllUsers = async (req, res, next) => {
+// @desc    Search users by email (for sharing documents)
+// @route   GET /users/search?email=...
+// @access  Private
+export const searchUsers = async (req, res, next) => {
   try {
-    const users = await User.find().select("-__v");
-    res.status(200).json({
-      totalCount: users.length,
-      users,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+    const { email } = req.query;
 
-export const getUserById = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.params.id).select("-__v");
-    if (!user) return res.status(404).json({ error: "User not found." });
-    res.status(200).json(user);
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const updateUser = async (req, res, next) => {
-  try {
-    if (
-      req.user._id.toString() !== req.params.id &&
-      req.user.role !== "admin"
-    ) {
-      return res.status(403).json({ error: "Forbidden." });
+    if (!email || email.trim().length < 2) {
+      return res
+        .status(400)
+        .json({ error: "Please provide at least 2 characters to search." });
     }
 
-    const { password, role, ...updateData } = req.body;
-    const user = await User.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-      runValidators: true,
-    }).select("-__v");
+    const users = await User.find({
+      email: { $regex: email.trim(), $options: "i" },
+      _id: { $ne: req.user._id }, // exclude self
+    })
+      .select("name email")
+      .limit(10);
 
-    if (!user) return res.status(404).json({ error: "User not found." });
-    res.status(200).json({ message: "User updated successfully", user });
+    res.status(200).json(
+      users.map((u) => ({
+        id: u._id,
+        name: u.name,
+        email: u.email,
+      }))
+    );
   } catch (error) {
     next(error);
   }
 };
 
-export const deleteUser = async (req, res, next) => {
+// @desc    Get all users
+// @route   GET /users
+// @access  Private
+export const getAllUsers = async (req, res, next) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
-    if (!user) return res.status(404).json({ error: "User not found." });
-    res.status(200).json({ message: "User deleted successfully." });
+    const users = await User.find().select("name email");
+
+    res.status(200).json(
+      users.map((u) => ({
+        id: u._id,
+        name: u.name,
+        email: u.email,
+      }))
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get user by ID
+// @route   GET /users/:id
+// @access  Private
+export const getUserById = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id).select("name email");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    res.status(200).json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+    });
   } catch (error) {
     next(error);
   }
