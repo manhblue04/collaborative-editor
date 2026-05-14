@@ -1,4 +1,16 @@
-import "dotenv/config";
+// ─── Load environment variables ──────────────────────────────────────────────
+// Ưu tiên: NODE_ENV đã được set từ CLI (cross-env) → load đúng file .env.{NODE_ENV}
+// Fallback: development nếu không có NODE_ENV nào được set
+import dotenv from "dotenv";
+const NODE_ENV = process.env.NODE_ENV || "development";
+const envResult = dotenv.config({ path: `.env.${NODE_ENV}` });
+if (envResult.error) {
+  console.warn(`[env] Không tìm thấy .env.${NODE_ENV}, thử load .env...`);
+  dotenv.config(); // fallback về .env cũ nếu có
+}
+console.log(`[env] Loaded .env.${NODE_ENV}`);
+// ─────────────────────────────────────────────────────────────────────────────
+
 import http from "http";
 import express from "express";
 import cors from "cors";
@@ -15,7 +27,25 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// CORS — đọc từ env, hỗ trợ nhiều origin (phân cách bằng dấu phẩy)
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim());
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Cho phép request không có origin (Postman, curl, server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked: ${origin}`));
+      }
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -27,6 +57,7 @@ app.get("/", (req, res) => {
   res.json({
     message: "Collaborative Editor API is running",
     version: "1.0.0",
+    environment: process.env.NODE_ENV,
   });
 });
 
@@ -43,9 +74,12 @@ attachYjsServer(server);
 
 server.listen(PORT, () => {
   console.log(
-    `Server running in ${process.env.NODE_ENV} mode on http://localhost:${PORT}`
+    `[server] Running in ${process.env.NODE_ENV} mode → http://localhost:${PORT}`
   );
-  console.log(`Yjs WebSocket on ws://localhost:${PORT}/yjs/<documentId>`);
+  console.log(
+    `[server] Yjs WebSocket  → ws://localhost:${PORT}/yjs/<documentId>`
+  );
+  console.log(`[server] CORS allowed   → ${allowedOrigins.join(", ")}`);
 });
 
 export default app;

@@ -7,8 +7,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "cross-env NODE_ENV=development nodemon src/index.js",
+    "start": "cross-env NODE_ENV=production node src/index.js",
+    "start:dev": "cross-env NODE_ENV=development node src/index.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -24,6 +25,7 @@
     "yjs": "^13.6.30"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "nodemon": "^3.1.14"
   }
 }

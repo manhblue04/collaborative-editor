@@ -10,6 +10,10 @@ build/
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+# Cho phép commit template
+!.env.example
 
 # Logs
 logs/
