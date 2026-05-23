@@ -20,15 +20,14 @@ export const USER_COLORS = [
   '#87CEEB',
 ];
 
-export const ROLES = {
-  OWNER: 'owner',
-  EDITOR: 'editor',
-  VIEWER: 'viewer',
-};
+export const TEXT_COLORS = [
+  '#000000', '#434343', '#666666', '#999999', '#bfbfbf',
+  '#cf1322', '#d4380d', '#d46b08', '#d48806', '#7cb305',
+  '#389e0d', '#08979c', '#0958d9', '#1d39c4', '#531dab',
+  '#c41d7f',
+];
 
-export const ROUTES = {
-  LOGIN: '/login',
-  REGISTER: '/register',
-  DASHBOARD: '/dashboard',
-  EDITOR: '/documents/:id',
-};
+export const HIGHLIGHT_COLORS = [
+  '#fef08a', '#fde047', '#fbbf24', '#fdba74', '#fca5a5',
+  '#c4b5fd', '#a5f3fc', '#bbf7d0', '#d9f99d', '#e5e7eb',
+];
