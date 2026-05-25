@@ -116,7 +116,6 @@ export const restoreVersion = async (req, res, next) => {
     // BƯỚC 1: Kick tất cả clients đang kết nối ra khỏi room TRƯỚC khi ghi đè state.
     // Nếu kick sau khi ghi DB, room debounced save (3s) có thể flush state cũ
     // từ ydoc in-memory đè state mới vừa ghi → mất dữ liệu khôi phục.
-    // Kick trước cũng đảm bảo room mới sẽ tạo từ đầu với state đã restore từ DB.
     kickRoom(req.params.id);
 
     // BƯỚC 2: Lưu snapshot của bản hiện tại trước khi ghi đè (auto-save backup)

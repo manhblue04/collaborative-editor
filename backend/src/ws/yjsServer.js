@@ -196,7 +196,6 @@ class Room {
 
   removeConnection(ws) {
     // Guard: bỏ qua nếu ws này đã bị xoá rồi
-    // (tránh bug: error event + close event đều gọi removeConnection)
     if (!this.connections.has(ws)) return;
 
     const meta = this.connections.get(ws);

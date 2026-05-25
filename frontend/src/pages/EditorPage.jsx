@@ -13,6 +13,10 @@ import {
   LogoutOutlined,
   UserOutlined,
   HistoryOutlined,
+  DownloadOutlined,
+  FilePdfOutlined,
+  FileMarkdownOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 import useDocumentStore from '../store/documentStore';
 import useAuthStore from '../store/authStore';
@@ -25,6 +29,7 @@ import ShareModal from '../components/editor/ShareModal';
 import VersionHistoryDrawer from '../components/editor/VersionHistoryDrawer';
 import { debounce } from '../utils/debounce';
 import { getInitials } from '../utils/helpers';
+import { exportAsHTML, exportAsMarkdown, exportAsText, exportAsPDF } from '../utils/exportDocument';
 
 const { Text } = Typography;
 
@@ -101,7 +106,7 @@ export default function EditorPage() {
     navigate('/login');
   };
 
-  // Dropdown menu tài khoản (giống Navbar trang chính)
+  // Dropdown menu tài khoản
   const userMenuItems = [
     {
       key: 'profile',
@@ -122,6 +127,35 @@ export default function EditorPage() {
       onClick: handleLogout,
     },
   ];
+
+  const exportItems = {
+    items: [
+      {
+        key: 'pdf',
+        icon: <FilePdfOutlined />,
+        label: 'PDF',
+        onClick: () => exportAsPDF(title),
+      },
+      {
+        key: 'html',
+        icon: <CodeOutlined />,
+        label: 'HTML',
+        onClick: () => exportAsHTML(editor, title),
+      },
+      {
+        key: 'markdown',
+        icon: <FileMarkdownOutlined />,
+        label: 'Markdown',
+        onClick: () => exportAsMarkdown(editor, title),
+      },
+      {
+        key: 'text',
+        icon: <FileTextOutlined />,
+        label: 'Plain Text',
+        onClick: () => exportAsText(editor, title),
+      },
+    ],
+  };
 
   const roleConfig = {
     owner: { color: 'gold', icon: <CrownFilled />, label: 'Owner' },
@@ -181,14 +215,21 @@ export default function EditorPage() {
           </span>
         </div>
 
-        {/* ── RIGHT: collaborators + share + user account ── */}
-        <div className="flex shrink-0 items-center gap-3">
+        {/* ── RIGHT: collaborators + export + history + share + user account ── */}
+        <div className="flex shrink-0 items-center gap-2">
           {/* Danh sách người đang chỉnh sửa */}
           {onlineUsers.length > 0 && (
             <div className="flex items-center">
               <UserCursors users={onlineUsers} />
             </div>
           )}
+
+          {/* Nút Export */}
+          <Dropdown menu={exportItems} trigger={['click']} disabled={!editor}>
+            <Button icon={<DownloadOutlined />} className="!rounded-full">
+              <span className="hidden sm:inline">Export</span>
+            </Button>
+          </Dropdown>
 
           {/* Nút Lịch sử phiên bản */}
           <Tooltip title="Lịch sử phiên bản">
@@ -211,7 +252,6 @@ export default function EditorPage() {
               <span className="hidden sm:inline">Chia sẻ</span>
             </Button>
           ) : (
-            /* Viewer hoặc editor không phải owner */
             <Button
               variant="outlined"
               icon={<EyeOutlined />}
@@ -222,7 +262,7 @@ export default function EditorPage() {
             </Button>
           )}
 
-          {/* Tài khoản người dùng – giống Navbar trang chính */}
+          {/* Tài khoản người dùng */}
           {user && (
             <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
               <button className="flex items-center gap-2 rounded-full p-1 pr-2 hover:bg-gray-100 transition-colors">
@@ -295,12 +335,9 @@ export default function EditorPage() {
         documentId={id}
         canEdit={canEdit}
         onBeforeRestore={() => {
-          // QUAN TRỌNG: Disconnect provider TRƯỚC khi gọi API restore.
-          // Nếu không, provider sẽ tự reconnect sau khi server kick room
-          // và push state cũ (đang nằm trong Y.Doc local) đè state đã khôi phục.
+          // Disconnect provider TRƯỚC khi gọi API restore để tránh push state cũ đè state mới
           try { disconnect?.(); } catch { /* ignore */ }
-          // Destroy Y.Doc local để xoá hoàn toàn state cũ khỏi bộ nhớ,
-          // tránh mọi khả năng nó được sync ngược lên server.
+          // Destroy Y.Doc local để xoá hoàn toàn state cũ
           try { ydoc?.destroy?.(); } catch { /* ignore */ }
         }}
         onRestoreSuccess={() => navigate(0)}

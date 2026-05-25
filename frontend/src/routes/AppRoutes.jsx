@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import EditorPage from '../pages/EditorPage';
+import JoinPage from '../pages/JoinPage';
 import useAuthStore from '../store/authStore';
 
 function ProtectedRoute({ children }) {
@@ -40,6 +41,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <EditorPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/join/:token"
+        element={
+          <ProtectedRoute>
+            <JoinPage />
           </ProtectedRoute>
         }
       />

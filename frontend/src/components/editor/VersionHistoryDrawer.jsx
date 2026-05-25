@@ -141,19 +141,15 @@ export default function VersionHistoryDrawer({ open, onClose, documentId, canEdi
       onOk: async () => {
         setRestoring(version._id);
         try {
-          // Hiển thị loading sớm để UX mượt
           message.loading({ content: 'Đang khôi phục...', key: 'restore', duration: 0 });
 
-          // BƯỚC 1: Disconnect provider + destroy Y.Doc local TRƯỚC khi gọi API.
-          // Cực kỳ quan trọng để tránh Yjs CRDT merge state cũ ngược lại server:
-          // - y-websocket sẽ auto-reconnect ngay sau khi server kick close 1012
-          // - Y.Doc local còn nguyên state hiện tại → sync sẽ push lên đè state đã restore
+          // BƯỚC 1: Disconnect provider + destroy Y.Doc local TRƯỚC khi gọi API
           onBeforeRestore?.();
 
-          // BƯỚC 2: Gọi API restore. Server cũng kick các client khác trong room.
+          // BƯỚC 2: Gọi API restore
           await versionService.restore(documentId, version._id);
 
-          // BƯỚC 3: Đóng drawer và reload trang ngay để Y.Doc fresh load state mới từ DB.
+          // BƯỚC 3: Đóng drawer và reload trang
           onClose();
           message.success({ content: 'Khôi phục thành công!', key: 'restore', duration: 1.5 });
           onRestoreSuccess?.();

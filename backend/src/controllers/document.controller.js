@@ -1,3 +1,5 @@
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import Document from "../models/Document.js";
 import User from "../models/User.js";
 
@@ -208,6 +210,134 @@ export const revokePermission = async (req, res, next) => {
     );
     await doc.save();
     res.status(200).json({ message: "Permission revoked" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── Share Link ──
+
+export const generateShareLink = async (req, res, next) => {
+  try {
+    const doc = await Document.findOne({
+      _id: req.params.id,
+      ownerId: req.user._id,
+    });
+    if (!doc) return res.status(404).json({ error: "Document not found." });
+
+    const { role = "editor", password } = req.body;
+    if (!["editor", "viewer"].includes(role)) {
+      return res.status(400).json({ error: "Invalid role." });
+    }
+
+    const token = crypto.randomUUID();
+    let hashedPassword = null;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
+    doc.shareLink = { token, role, password: hashedPassword, enabled: true };
+    await doc.save();
+
+    res.status(200).json({
+      token,
+      role,
+      hasPassword: !!password,
+      url: `/join/${token}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getShareLink = async (req, res, next) => {
+  try {
+    const doc = await Document.findOne({
+      _id: req.params.id,
+      $or: [
+        { ownerId: req.user._id },
+        { "collaborators.userId": req.user._id },
+      ],
+    });
+    if (!doc) return res.status(404).json({ error: "Document not found." });
+
+    if (!doc.shareLink?.enabled) {
+      return res.status(200).json(null);
+    }
+
+    res.status(200).json({
+      token: doc.shareLink.token,
+      role: doc.shareLink.role,
+      hasPassword: !!doc.shareLink.password,
+      url: `/join/${doc.shareLink.token}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const revokeShareLink = async (req, res, next) => {
+  try {
+    const doc = await Document.findOne({
+      _id: req.params.id,
+      ownerId: req.user._id,
+    });
+    if (!doc) return res.status(404).json({ error: "Document not found." });
+
+    doc.shareLink = { token: null, role: "editor", password: null, enabled: false };
+    await doc.save();
+
+    res.status(200).json({ message: "Share link revoked" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const joinByLink = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const doc = await Document.findOne({
+      "shareLink.token": token,
+      "shareLink.enabled": true,
+    });
+    if (!doc) return res.status(404).json({ error: "Invalid or expired link." });
+
+    // Check password
+    if (doc.shareLink.password) {
+      if (!password) {
+        return res.status(403).json({ error: "Password required.", requirePassword: true });
+      }
+      const valid = await bcrypt.compare(password, doc.shareLink.password);
+      if (!valid) {
+        return res.status(403).json({ error: "Incorrect password." });
+      }
+    }
+
+    const userId = req.user._id;
+
+    // Owner cannot join their own doc
+    if (doc.ownerId.toString() === userId.toString()) {
+      return res.status(200).json({ documentId: doc._id, role: "owner" });
+    }
+
+    // Atomic upsert: try update existing first, then push if not found
+    const updated = await Document.findOneAndUpdate(
+      { _id: doc._id, "collaborators.userId": userId },
+      { $set: { "collaborators.$.role": doc.shareLink.role } },
+      { new: true }
+    );
+
+    if (!updated) {
+      await Document.updateOne(
+        { _id: doc._id, "collaborators.userId": { $ne: userId } },
+        { $push: { collaborators: { userId, role: doc.shareLink.role } } }
+      );
+    }
+
+    const freshDoc = await Document.findById(doc._id);
+    res.status(200).json({ documentId: doc._id, role: freshDoc.getRole(userId) });
   } catch (error) {
     next(error);
   }
