@@ -6,11 +6,16 @@ import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 import Document from "../models/Document.js";
+import Version from "../models/Version.js";
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 
 const SAVE_DEBOUNCE_MS = 3000;
+// Thời gian chờ trước khi auto-save version (tránh React StrictMode double-mount)
+const AUTO_VERSION_DELAY_MS = 10_000;
+// Khoảng thời gian tối thiểu giữa 2 lần auto-save version của cùng 1 document
+const AUTO_VERSION_MIN_INTERVAL_MS = 2 * 60 * 1000; // 2 phút
 
 /**
  * In-memory room registry: documentId -> Room
@@ -26,7 +31,10 @@ class Room {
     this.awareness.setLocalState(null);
     this.connections = new Map(); // ws -> { userId, role, controlledIds }
     this.saveTimer = null;
+    this.autoVersionTimer = null;  // debounce timer cho auto-save version
+    this.lastAutoVersionAt = 0;    // timestamp lần auto-save gần nhất
     this.loaded = false;
+    this.killed = false;           // true sau khi kickRoom — chặn mọi save về DB
 
     this.ydoc.on("update", (update, origin) => {
       this.broadcast(this.encodeSyncUpdate(update), origin);
@@ -59,13 +67,71 @@ class Room {
   }
 
   async save() {
+    // Nếu room đã bị kick (restore version) thì không ghi đè state nữa
+    if (this.killed) return;
     try {
       const state = Y.encodeStateAsUpdate(this.ydoc);
+      // Double-check: phòng trường hợp killed flag được set khi đang await encode
+      if (this.killed) return;
       await Document.findByIdAndUpdate(this.documentId, {
         yjsState: Buffer.from(state),
       });
     } catch (err) {
       console.error(`[yjs] Save failed for ${this.documentId}:`, err.message);
+    }
+  }
+
+  /**
+   * Lên lịch auto-save version với debounce.
+   * Huỷ nếu có connection mới trước khi hết thời gian chờ.
+   */
+  scheduleAutoVersion() {
+    if (this.autoVersionTimer) clearTimeout(this.autoVersionTimer);
+    this.autoVersionTimer = setTimeout(async () => {
+      this.autoVersionTimer = null;
+      // Kiểm tra lần nữa: phòng phải thực sự trống
+      if (this.connections.size > 0) return;
+      await this.save();
+      await this.autoSaveVersion();
+      // Dọn dẹp room sau khi lưu xong
+      if (this.connections.size === 0) {
+        this.ydoc.destroy();
+        this.awareness.destroy();
+        rooms.delete(this.documentId);
+      }
+    }, AUTO_VERSION_DELAY_MS);
+  }
+
+  /**
+   * Tự động lưu snapshot version khi phòng trống.
+   * Có rate-limit: không lưu nếu lần trước < AUTO_VERSION_MIN_INTERVAL_MS.
+   * Chỉ lưu nếu document có nội dung thực sự.
+   */
+  async autoSaveVersion() {
+    try {
+      const state = Y.encodeStateAsUpdate(this.ydoc);
+      // Bỏ qua nếu state quá nhỏ (document rỗng, chỉ có Yjs header ~2 bytes)
+      if (state.length <= 2) return;
+
+      // Rate-limit: bỏ qua nếu vừa auto-save gần đây
+      const now = Date.now();
+      if (now - this.lastAutoVersionAt < AUTO_VERSION_MIN_INTERVAL_MS) {
+        console.log(`[version] Auto-save skipped (rate-limit) for ${this.documentId}`);
+        return;
+      }
+
+      await Version.create({
+        documentId: this.documentId,
+        yjsState: Buffer.from(state),
+        label: "",
+        createdBy: null,
+        isAuto: true,
+      });
+      this.lastAutoVersionAt = Date.now();
+      await Version.pruneOldVersions(this.documentId);
+      console.log(`[version] Auto-saved snapshot for ${this.documentId}`);
+    } catch (err) {
+      console.error(`[version] Auto-save failed for ${this.documentId}:`, err.message);
     }
   }
 
@@ -99,6 +165,11 @@ class Room {
   }
 
   addConnection(ws, meta) {
+    // Nếu đang có timer chờ auto-save version, huỷ ngay vì có người kết nối lại
+    if (this.autoVersionTimer) {
+      clearTimeout(this.autoVersionTimer);
+      this.autoVersionTimer = null;
+    }
     this.connections.set(ws, { ...meta, controlledIds: new Set() });
 
     // Send sync step 1 (request remote updates)
@@ -124,6 +195,10 @@ class Room {
   }
 
   removeConnection(ws) {
+    // Guard: bỏ qua nếu ws này đã bị xoá rồi
+    // (tránh bug: error event + close event đều gọi removeConnection)
+    if (!this.connections.has(ws)) return;
+
     const meta = this.connections.get(ws);
     if (meta?.controlledIds.size) {
       awarenessProtocol.removeAwarenessStates(
@@ -135,14 +210,9 @@ class Room {
     this.connections.delete(ws);
 
     if (this.connections.size === 0) {
-      // Persist final state and discard room from memory
-      this.save().finally(() => {
-        if (this.connections.size === 0) {
-          this.ydoc.destroy();
-          this.awareness.destroy();
-          rooms.delete(this.documentId);
-        }
-      });
+      // Lên lịch auto-save version với debounce (10s)
+      // Nếu có người kết nối lại trong 10s → timer bị huỷ, không lưu thừa
+      this.scheduleAutoVersion();
     }
   }
 
@@ -217,6 +287,43 @@ async function authorizeConnection(documentId, userId) {
   if (!doc) return null;
   const role = doc.getRole(userId);
   return role ? { doc, role } : null;
+}
+
+/**
+ * Kick toàn bộ clients ra khỏi room và xoá room khỏi memory.
+ * Dùng sau khi restore version: buộc mọi client reconnect và load lại
+ * state mới từ DB thay vì dùng state cũ đang giữ trong memory.
+ */
+export function kickRoom(documentId) {
+  const room = rooms.get(documentId);
+  if (!room) return;
+
+  // Đánh dấu room đã chết — mọi save() đang in-flight hoặc sắp tới sẽ no-op,
+  // tránh ghi state cũ đè state đã restore.
+  room.killed = true;
+
+  // Huỷ timer nếu đang chờ
+  if (room.autoVersionTimer) {
+    clearTimeout(room.autoVersionTimer);
+    room.autoVersionTimer = null;
+  }
+  if (room.saveTimer) {
+    clearTimeout(room.saveTimer);
+    room.saveTimer = null;
+  }
+
+  // Đóng tất cả WS connections — provider phía client sẽ tự reconnect
+  room.connections.forEach((_meta, ws) => {
+    try { ws.close(1012, "server-restore"); } catch { /* ignore */ }
+  });
+  room.connections.clear();
+
+  // Huỷ ydoc / awareness và xoá room khỏi registry
+  try { room.ydoc.destroy(); } catch { /* ignore */ }
+  try { room.awareness.destroy(); } catch { /* ignore */ }
+  rooms.delete(documentId);
+
+  console.log(`[version] Room ${documentId} kicked for restore`);
 }
 
 export function attachYjsServer(httpServer) {

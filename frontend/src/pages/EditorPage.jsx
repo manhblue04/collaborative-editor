@@ -12,6 +12,7 @@ import {
   SyncOutlined,
   LogoutOutlined,
   UserOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import useDocumentStore from '../store/documentStore';
 import useAuthStore from '../store/authStore';
@@ -21,6 +22,7 @@ import EditorWrapper from '../components/editor/EditorWrapper';
 import Sidebar from '../components/layout/Sidebar';
 import UserCursors from '../components/editor/UserCursor';
 import ShareModal from '../components/editor/ShareModal';
+import VersionHistoryDrawer from '../components/editor/VersionHistoryDrawer';
 import { debounce } from '../utils/debounce';
 import { getInitials } from '../utils/helpers';
 
@@ -60,16 +62,14 @@ export default function EditorPage() {
 
   const [title, setTitle] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const role = currentDocument?.role || 'viewer';
   const canEdit = role === 'owner' || role === 'editor';
   const isOwner = role === 'owner';
 
-  const { editor, isReady, onlineUsers, connectionStatus } = useCollaborativeEditor(
-    id,
-    user,
-    { canEdit }
-  );
+  const { editor, isReady, onlineUsers, connectionStatus, disconnect, ydoc } =
+    useCollaborativeEditor(id, user, { canEdit });
 
   useEffect(() => {
     if (id) fetchDocument(id);
@@ -190,6 +190,16 @@ export default function EditorPage() {
             </div>
           )}
 
+          {/* Nút Lịch sử phiên bản */}
+          <Tooltip title="Lịch sử phiên bản">
+            <Button
+              type="text"
+              icon={<HistoryOutlined />}
+              onClick={() => setHistoryOpen(true)}
+              className="!rounded-full"
+            />
+          </Tooltip>
+
           {/* Nút Share (chỉ owner) */}
           {isOwner ? (
             <Button
@@ -277,6 +287,23 @@ export default function EditorPage() {
         documentId={id}
         currentUserId={user?.id}
         isOwner={isOwner}
+      />
+
+      <VersionHistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        documentId={id}
+        canEdit={canEdit}
+        onBeforeRestore={() => {
+          // QUAN TRỌNG: Disconnect provider TRƯỚC khi gọi API restore.
+          // Nếu không, provider sẽ tự reconnect sau khi server kick room
+          // và push state cũ (đang nằm trong Y.Doc local) đè state đã khôi phục.
+          try { disconnect?.(); } catch { /* ignore */ }
+          // Destroy Y.Doc local để xoá hoàn toàn state cũ khỏi bộ nhớ,
+          // tránh mọi khả năng nó được sync ngược lên server.
+          try { ydoc?.destroy?.(); } catch { /* ignore */ }
+        }}
+        onRestoreSuccess={() => navigate(0)}
       />
     </div>
   );
