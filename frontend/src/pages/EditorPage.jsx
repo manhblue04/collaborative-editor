@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button, Input, Tag, Alert, Tooltip, Spin, App as AntdApp } from 'antd';
+import { Button, Input, Tag, Alert, Tooltip, Spin, Dropdown, App as AntdApp } from 'antd';
 import {
   ArrowLeftOutlined,
   ShareAltOutlined,
@@ -9,6 +9,11 @@ import {
   EyeOutlined,
   EditOutlined,
   CrownFilled,
+  DownloadOutlined,
+  FilePdfOutlined,
+  FileMarkdownOutlined,
+  FileTextOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 import useDocumentStore from '../store/documentStore';
 import { useAuth } from '../hooks/useAuth';
@@ -18,6 +23,7 @@ import Sidebar from '../components/layout/Sidebar';
 import UserCursors from '../components/editor/UserCursor';
 import ShareModal from '../components/editor/ShareModal';
 import { debounce } from '../utils/debounce';
+import { exportAsHTML, exportAsMarkdown, exportAsText, exportAsPDF } from '../utils/exportDocument';
 
 export default function EditorPage() {
   const { id } = useParams();
@@ -63,6 +69,35 @@ export default function EditorPage() {
     const newTitle = e.target.value;
     setTitle(newTitle);
     if (canEdit) debouncedUpdateTitle(newTitle);
+  };
+
+  const exportItems = {
+    items: [
+      {
+        key: 'pdf',
+        icon: <FilePdfOutlined />,
+        label: 'PDF',
+        onClick: () => exportAsPDF(title),
+      },
+      {
+        key: 'html',
+        icon: <CodeOutlined />,
+        label: 'HTML',
+        onClick: () => exportAsHTML(editor, title),
+      },
+      {
+        key: 'markdown',
+        icon: <FileMarkdownOutlined />,
+        label: 'Markdown',
+        onClick: () => exportAsMarkdown(editor, title),
+      },
+      {
+        key: 'text',
+        icon: <FileTextOutlined />,
+        label: 'Plain Text',
+        onClick: () => exportAsText(editor, title),
+      },
+    ],
   };
 
   const roleConfig = {
@@ -125,6 +160,12 @@ export default function EditorPage() {
           </Tooltip>
 
           <UserCursors users={onlineUsers} />
+
+          <Dropdown menu={exportItems} trigger={['click']} disabled={!editor}>
+            <Button icon={<DownloadOutlined />}>
+              <span className="hidden sm:inline">Export</span>
+            </Button>
+          </Dropdown>
 
           {isOwner && (
             <Button

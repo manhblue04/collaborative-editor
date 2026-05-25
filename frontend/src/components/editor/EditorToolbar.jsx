@@ -58,7 +58,7 @@ const ALIGN_ICONS = {
   justify: <LineHeightOutlined />,
 };
 
-export default function EditorToolbar({ editor, disabled = false, onOpenSearch, onOpenLink }) {
+export default function EditorToolbar({ editor, disabled = false, onOpenSearch }) {
   const [imageOpen, setImageOpen] = useState(false);
   const [alignDropdownOpen, setAlignDropdownOpen] = useState(false);
   const [insertDropdownOpen, setInsertDropdownOpen] = useState(false);
@@ -94,12 +94,6 @@ export default function EditorToolbar({ editor, disabled = false, onOpenSearch, 
       icon: <PictureOutlined />,
       label: 'Image',
       onClick: () => setImageOpen(true),
-    },
-    {
-      key: 'link',
-      icon: <LinkOutlined />,
-      label: 'Link',
-      onClick: () => { setInsertDropdownOpen(false); onOpenLink(); },
     },
     {
       key: 'table',
@@ -165,6 +159,23 @@ export default function EditorToolbar({ editor, disabled = false, onOpenSearch, 
         </ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Strikethrough">
           <StrikethroughOutlined />
+        </ToolBtn>
+        <ToolBtn
+          onClick={() => {
+            if (editor.isActive('link')) {
+              editor.chain().focus().extendMarkRange('link').unsetLink().run();
+            } else {
+              // Extend selection to word if nothing selected, so bubble menu triggers
+              if (editor.state.selection.empty) {
+                editor.chain().focus().extendMarkRange('link').run();
+              }
+              // BubbleMenu will appear automatically on selection
+            }
+          }}
+          isActive={editor.isActive('link')}
+          title="Link (Ctrl+K)"
+        >
+          <LinkOutlined />
         </ToolBtn>
 
         <Divider type="vertical" className="!mx-1 !h-6" />

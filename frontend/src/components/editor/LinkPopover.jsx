@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Input, Button, Switch, Space } from 'antd';
+import { Input, Button } from 'antd';
+import { LinkOutlined, CloseOutlined } from '@ant-design/icons';
 
 export default function LinkPopover({ open, onClose, editor }) {
   const existingHref = editor?.isActive('link') ? editor.getAttributes('link').href : '';
   const [url, setUrl] = useState('');
   const [text, setText] = useState('');
-  const [newTab, setNewTab] = useState(false);
   const urlRef = useRef(null);
 
   useEffect(() => {
@@ -26,14 +26,14 @@ export default function LinkPopover({ open, onClose, editor }) {
     if (!url) return;
     editor.chain().focus().extendMarkRange('link');
     if (existingHref) {
-      editor.setLink({ href: url, target: newTab ? '_blank' : null }).run();
+      editor.setLink({ href: url }).run();
     } else if (text && !editor.state.selection.empty) {
-      editor.setLink({ href: url, target: newTab ? '_blank' : null }).run();
+      editor.setLink({ href: url }).run();
     } else if (text) {
       editor
         .chain()
         .focus()
-        .insertContent(`<a href="${url}"${newTab ? ' target="_blank"' : ''}>${text}</a>`)
+        .insertContent(`<a href="${url}">${text}</a>`)
         .run();
     }
     onClose();
@@ -45,46 +45,40 @@ export default function LinkPopover({ open, onClose, editor }) {
   };
 
   return (
-    <div
-      className="absolute top-12 left-1/2 -translate-x-1/2 z-30 w-80 rounded-lg border border-gray-200 bg-white shadow-xl p-4"
-      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
-    >
-      <div className="text-sm font-medium text-gray-700 mb-3">Link</div>
-      <div className="mb-2">
-        <div className="text-xs text-gray-500 mb-1">URL</div>
-        <Input
-          ref={urlRef}
-          size="small"
-          placeholder="https://..."
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onPressEnter={handleApply}
-        />
-      </div>
-      <div className="mb-2">
-        <div className="text-xs text-gray-500 mb-1">Text</div>
-        <Input
-          size="small"
-          placeholder="Link text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onPressEnter={handleApply}
-        />
-      </div>
-      <div className="mb-3 flex items-center gap-2">
-        <Switch size="small" checked={newTab} onChange={setNewTab} />
-        <span className="text-xs text-gray-500">Open in new tab</span>
-      </div>
-      <Space>
-        <Button size="small" type="primary" onClick={handleApply} disabled={!url}>
-          Apply
+    <div className="flex items-center gap-2">
+      <LinkOutlined className="text-gray-400 shrink-0" />
+      <Input
+        ref={urlRef}
+        size="small"
+        placeholder="URL..."
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        onPressEnter={handleApply}
+        className="!w-56"
+      />
+      <Input
+        size="small"
+        placeholder="Text..."
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onPressEnter={handleApply}
+        className="!w-40"
+      />
+      <Button size="small" type="primary" onClick={handleApply} disabled={!url}>
+        {existingHref ? 'Update' : 'Apply'}
+      </Button>
+      {existingHref && (
+        <Button size="small" danger onClick={handleRemove}>
+          Remove
         </Button>
-        {existingHref && (
-          <Button size="small" danger onClick={handleRemove}>
-            Remove
-          </Button>
-        )}
-      </Space>
+      )}
+      <button
+        type="button"
+        className="shrink-0 text-gray-400 hover:text-gray-600 p-1"
+        onClick={onClose}
+      >
+        <CloseOutlined className="text-xs" />
+      </button>
     </div>
   );
 }

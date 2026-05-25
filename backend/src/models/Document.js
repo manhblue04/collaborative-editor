@@ -37,6 +37,12 @@ const documentSchema = new mongoose.Schema(
       type: [collaboratorSchema],
       default: [],
     },
+    shareLink: {
+      token: { type: String, default: null },
+      role: { type: String, enum: ["editor", "viewer"], default: "editor" },
+      password: { type: String, default: null },
+      enabled: { type: Boolean, default: false },
+    },
   },
   {
     timestamps: true,

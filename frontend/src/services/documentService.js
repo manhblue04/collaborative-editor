@@ -45,4 +45,24 @@ export const documentService = {
     const { data } = await api.get(`/documents/${id}/state`);
     return data;
   },
+
+  async generateShareLink(id, payload) {
+    const { data } = await api.post(`/documents/${id}/share-link`, payload);
+    return data;
+  },
+
+  async getShareLink(id) {
+    const { data } = await api.get(`/documents/${id}/share-link`);
+    return data;
+  },
+
+  async revokeShareLink(id) {
+    const { data } = await api.delete(`/documents/${id}/share-link`);
+    return data;
+  },
+
+  async joinByLink(token, payload) {
+    const { data } = await api.post(`/documents/join/${token}`, payload);
+    return data;
+  },
 };

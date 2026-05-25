@@ -4,11 +4,10 @@ import { Spin } from 'antd';
 import EditorToolbar from './EditorToolbar';
 import StatusBar from './StatusBar';
 import SearchReplaceBar from './SearchReplaceBar';
-import LinkPopover from './LinkPopover';
+import LinkBubbleMenu from './LinkBubbleMenu';
 
 export default function EditorWrapper({ editor, isReady, canEdit = true }) {
   const [searchOpen, setSearchOpen] = useState(false);
-  const [linkOpen, setLinkOpen] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -16,14 +15,13 @@ export default function EditorWrapper({ editor, isReady, canEdit = true }) {
         e.preventDefault();
         setSearchOpen(true);
       }
-      if (e.key === 'Escape') {
-        if (searchOpen) setSearchOpen(false);
-        if (linkOpen) setLinkOpen(false);
+      if (e.key === 'Escape' && searchOpen) {
+        setSearchOpen(false);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [searchOpen, linkOpen]);
+  }, [searchOpen]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -31,7 +29,6 @@ export default function EditorWrapper({ editor, isReady, canEdit = true }) {
         editor={editor}
         disabled={!canEdit}
         onOpenSearch={() => setSearchOpen(true)}
-        onOpenLink={() => setLinkOpen(true)}
       />
       <div className="relative flex-1 overflow-y-auto">
         {!isReady && (
@@ -39,12 +36,10 @@ export default function EditorWrapper({ editor, isReady, canEdit = true }) {
             <Spin tip="Syncing document..." size="large" />
           </div>
         )}
-        {linkOpen && (
-          <LinkPopover open={linkOpen} onClose={() => setLinkOpen(false)} editor={editor} />
-        )}
         {searchOpen && (
           <SearchReplaceBar editor={editor} onClose={() => setSearchOpen(false)} />
         )}
+        {editor && canEdit && <LinkBubbleMenu editor={editor} />}
         <EditorContent editor={editor} className="min-h-[500px]" />
       </div>
       <StatusBar editor={editor} />
