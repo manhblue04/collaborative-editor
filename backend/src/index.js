@@ -19,6 +19,7 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.routes.js";
 import documentRoutes from "./routes/document.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import versionRoutes from "./routes/version.routes.js";
 import errorHandler, { notFound } from "./middlewares/error.middleware.js";
 import { attachYjsServer } from "./ws/yjsServer.js";
 
@@ -63,6 +64,7 @@ app.get("/", (req, res) => {
 
 app.use("/auth", authRoutes);
 app.use("/documents", documentRoutes);
+app.use("/documents/:id/versions", versionRoutes);
 app.use("/users", userRoutes);
 
 app.use(notFound);
