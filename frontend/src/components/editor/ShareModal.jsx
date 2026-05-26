@@ -116,10 +116,43 @@ export default function ShareModal({ open, onClose, documentId, currentUserId, i
   };
 
   const copyLink = () => {
+    if (!shareLink?.token) return;
     const url = `${window.location.origin}/join/${shareLink.token}`;
-    navigator.clipboard.writeText(url).then(() => {
-      message.success('Link copied to clipboard');
-    });
+
+    const fallbackCopy = () => {
+      const el = document.createElement('textarea');
+      el.value = url;
+      // Ẩn phần tử khỏi viewport, không dùng display:none vì select() sẽ không hoạt động
+      el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+      document.body.appendChild(el);
+      el.focus();
+      el.setSelectionRange(0, el.value.length);
+      try {
+        // ClipboardItem + write là cách hiện đại nhất trong fallback context
+        const type = 'text/plain';
+        const blob = new Blob([url], { type });
+        const data = [new ClipboardItem({ [type]: blob })];
+        navigator.clipboard.write(data).then(() => {
+          message.success('Link copied to clipboard');
+        }).catch(() => {
+          message.error('Could not copy link. Please copy manually.');
+        });
+      } finally {
+        document.body.removeChild(el);
+      }
+    };
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        message.success('Link copied to clipboard');
+      }).catch(() => {
+        // Fallback: clipboard API bị từ chối (mất focus, thiếu HTTPS, hoặc permission bị chặn)
+        fallbackCopy();
+      });
+    } else {
+      // Fallback cho môi trường không hỗ trợ Clipboard API (HTTP, trình duyệt cũ)
+      fallbackCopy();
+    }
   };
 
   return (
