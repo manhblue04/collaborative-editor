@@ -2,6 +2,33 @@
 
 Ứng dụng soạn thảo văn bản cộng tác thời gian thực — tương tự Google Docs. Nhiều người dùng có thể cùng chỉnh sửa một tài liệu đồng thời, với con trỏ trực tiếp, quản lý phiên bản, phân quyền và xuất tài liệu.
 
+
+---
+
+## 🚀 Cài đặt & Chạy
+
+### Yêu cầu
+
+- Node.js >= 18
+
+### Cài đặt nhanh
+
+```bash
+# Clone project
+git clone https://github.com/manhblue04/collaborative-editor.git
+cd collaborative-editor
+
+# Cài tất cả dependencies (root + backend + frontend) 
+npm run install:all
+```
+
+### Chạy Development
+```bash
+# Chạy đồng thời backend + frontend 
+npm run dev
+```
+---
+
 ---
 
 ## 🏗️ Công nghệ sử dụng
@@ -194,68 +221,7 @@ collaborative-editor/
     └── .env                  # Biến môi trường frontend
 ```
 
----
 
-## 🚀 Cài đặt & Chạy
-
-### Yêu cầu
-
-- Node.js >= 18
-- MongoDB đang chạy (local hoặc Atlas)
-
-### Cài đặt nhanh
-
-```bash
-# Clone project
-git clone <repo-url>
-cd collaborative-editor
-
-# Cài tất cả dependencies (root + backend + frontend)
-npm run install:all
-```
-
-### Cấu hình môi trường
-
-**Backend** — tạo file `backend/.env`:
-
-```env
-NODE_ENV=development
-PORT=3001
-MONGODB_URI=mongodb://localhost:27017/collaborative-editor
-JWT_SECRET=your_random_64_byte_hex_secret
-JWT_EXPIRES_IN=7d
-CORS_ORIGIN=http://localhost:5173
-```
-
-**Frontend** — tạo file `frontend/.env`:
-
-```env
-VITE_API_URL=http://localhost:3001
-VITE_WS_URL=ws://localhost:3001/yjs
-```
-
-### Chạy Development
-
-```bash
-# Chạy đồng thời backend + frontend
-npm run dev
-
-# Hoặc chạy riêng lẻ
-npm run dev:backend    # Backend tại http://localhost:3001
-npm run dev:frontend   # Frontend tại http://localhost:5173
-
-# Chạy với network (truy cập qua LAN)
-npm run dev:host
-```
-
-### Build Production
-
-```bash
-npm run build:frontend   # Build frontend
-npm start                # Chạy backend (phục vụ cả frontend đã build)
-```
-
----
 
 ## 🌐 API Reference
 
