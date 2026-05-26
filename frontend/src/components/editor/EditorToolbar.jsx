@@ -120,7 +120,7 @@ export default function EditorToolbar({ editor, disabled = false, onOpenSearch }
     <>
       <div
         className={classNames(
-          'flex flex-wrap items-center gap-0.5 border-b border-gray-200 bg-white px-3 py-2 sticky top-0 z-10',
+          'flex flex-wrap items-center gap-0.5 bg-white px-3 py-1.5',
           isDisabled && 'opacity-50 pointer-events-none'
         )}
       >

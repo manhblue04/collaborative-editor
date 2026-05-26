@@ -80,7 +80,8 @@ Trình soạn thảo được xây dựng trên TipTap v2 + ProseMirror với đ
 #### Công cụ soạn thảo
 
 - **Undo / Redo**
-- **Word count & Character count** — Hiển thị trên status bar
+- **Phân trang A4 tự động** — Editor hiển thị theo giao diện kiểu Google Docs: nền canvas màu `#f0f4f9`, tờ giấy trắng khổ A4 (794px ≈ 210mm) có shadow, đường ranh trang màu xám nhạt tự động xuất hiện mỗi khi nội dung tràn (~922px/trang). Số trang hiển thị ở góc phải mỗi đường ranh và trên status bar.
+- **Word count & Character count & Page count** — Hiển thị trên status bar
 - **Tìm kiếm & Thay thế** — Mở bằng `Ctrl+F`; highlight match, điều hướng Prev/Next, thay một / thay tất cả
 
 ---

@@ -134,7 +134,7 @@ export default function EditorPage() {
         key: 'pdf',
         icon: <FilePdfOutlined />,
         label: 'PDF',
-        onClick: () => exportAsPDF(title),
+        onClick: () => exportAsPDF(editor, title),
       },
       {
         key: 'html',
@@ -174,7 +174,7 @@ export default function EditorPage() {
   return (
     <div className="flex h-screen flex-col bg-gray-50">
       {/* ── Header Google Docs style ── */}
-      <header className="z-20 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-3 shadow-sm gap-3">
+      <header className="z-20 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-3 gap-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
 
         {/* ── LEFT: logo + file icon + title + sync ── */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -307,11 +307,10 @@ export default function EditorPage() {
 
       {/* Main */}
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6">
-          <div className="mx-auto max-w-4xl">
-            <EditorWrapper editor={editor} isReady={isReady} canEdit={canEdit} />
-          </div>
-        </main>
+        {/* Cột trái: toolbar + canvas + statusbar */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <EditorWrapper editor={editor} isReady={isReady} canEdit={canEdit} />
+        </div>
 
         <Sidebar
           onlineUsers={onlineUsers}

@@ -108,8 +108,7 @@ export function useCollaborativeEditor(documentId, user, options = {}) {
       editable: initialized && canEdit,
       editorProps: {
         attributes: {
-          class:
-            'prose prose-sm sm:prose lg:prose-lg focus:outline-none max-w-none',
+          class: 'focus:outline-none',
         },
       },
     },

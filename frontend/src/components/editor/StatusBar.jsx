@@ -1,4 +1,4 @@
-export default function StatusBar({ editor }) {
+export default function StatusBar({ editor, pageCount = 1 }) {
   if (!editor) return null;
 
   const text = editor.state.doc.textContent;
@@ -6,9 +6,15 @@ export default function StatusBar({ editor }) {
   const charCount = text.length;
 
   return (
-    <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-4 py-1.5 text-xs text-gray-400">
-      <span>{wordCount} words</span>
-      <span>{charCount} characters</span>
+    <div
+      className="flex items-center gap-4 border-t border-gray-200 bg-white px-4 py-1"
+      style={{ fontSize: '12px', color: '#5f6368', userSelect: 'none' }}
+    >
+      <span>Trang {pageCount}</span>
+      <span>·</span>
+      <span>{wordCount.toLocaleString()} từ</span>
+      <span>·</span>
+      <span>{charCount.toLocaleString()} ký tự</span>
     </div>
   );
 }
