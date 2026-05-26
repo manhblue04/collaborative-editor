@@ -2,6 +2,11 @@
 
 Ứng dụng soạn thảo văn bản cộng tác thời gian thực — tương tự Google Docs. Nhiều người dùng có thể cùng chỉnh sửa một tài liệu đồng thời, với con trỏ trực tiếp, quản lý phiên bản, phân quyền và xuất tài liệu.
 
+---
+
+## 🌐 Demo trực tuyến
+
+Ứng dụng đang chạy tại: **[http://collab.blue304.shop/](http://collab.blue304.shop/)**
 
 ---
 
@@ -23,10 +28,12 @@ npm run install:all
 ```
 
 ### Chạy Development
+
 ```bash
 # Chạy đồng thời backend + frontend 
 npm run dev
 ```
+
 ---
 
 ---
@@ -34,6 +41,7 @@ npm run dev
 ## 🏗️ Công nghệ sử dụng
 
 ### Backend
+
 
 | Công nghệ           | Mục đích                           |
 | ------------------- | ---------------------------------- |
@@ -43,7 +51,9 @@ npm run dev
 | WebSocket (`ws`)    | Kết nối thời gian thực             |
 | JWT + bcryptjs      | Xác thực & mã hóa mật khẩu         |
 
+
 ### Frontend
+
 
 | Công nghệ                    | Mục đích                  |
 | ---------------------------- | ------------------------- |
@@ -53,6 +63,7 @@ npm run dev
 | Zustand                      | Quản lý state             |
 | Ant Design v6 + Tailwind CSS | UI components & styling   |
 | React Router v7              | Client-side routing       |
+
 
 ---
 
@@ -158,12 +169,14 @@ Trình soạn thảo được xây dựng trên TipTap v2 + ProseMirror với đ
 
 Tất cả hoạt động **hoàn toàn phía client**, không cần server:
 
+
 | Định dạng      | Phương thức                                                                                                          |
 | -------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **PDF**        | In qua `window.print()` (mở tab mới với CSS tối ưu in ấn)                                                            |
 | **HTML**       | File `.html` đầy đủ với CSS nhúng sẵn                                                                                |
 | **Markdown**   | Chuyển đổi tùy chỉnh từ JSON của TipTap → Markdown (hỗ trợ heading, list, table, code block, link, image, task list) |
 | **Plain Text** | File `.txt` thuần văn bản                                                                                            |
+
 
 ---
 
@@ -221,11 +234,10 @@ collaborative-editor/
     └── .env                  # Biến môi trường frontend
 ```
 
-
-
 ## 🌐 API Reference
 
 ### Authentication
+
 
 | Method | Endpoint         | Mô tả                       |
 | ------ | ---------------- | --------------------------- |
@@ -233,7 +245,9 @@ collaborative-editor/
 | POST   | `/auth/login`    | Đăng nhập, trả về JWT       |
 | GET    | `/auth/me`       | Lấy thông tin user hiện tại |
 
+
 ### Tài liệu
+
 
 | Method | Endpoint               | Mô tả                     |
 | ------ | ---------------------- | ------------------------- |
@@ -245,7 +259,9 @@ collaborative-editor/
 | GET    | `/documents/:id/state` | Lấy Yjs state (base64)    |
 | PUT    | `/documents/:id/state` | Lưu Yjs state             |
 
+
 ### Chia sẻ & Phân quyền
+
 
 | Method | Endpoint                       | Mô tả                       |
 | ------ | ------------------------------ | --------------------------- |
@@ -257,7 +273,9 @@ collaborative-editor/
 | DELETE | `/documents/:id/share-link`    | Thu hồi share link          |
 | POST   | `/documents/join/:token`       | Tham gia qua share link     |
 
+
 ### Phiên bản
+
 
 | Method | Endpoint                               | Mô tả                   |
 | ------ | -------------------------------------- | ----------------------- |
@@ -265,6 +283,7 @@ collaborative-editor/
 | POST   | `/documents/:id/versions`              | Lưu phiên bản thủ công  |
 | GET    | `/documents/:id/versions/:vId/state`   | Lấy state của phiên bản |
 | POST   | `/documents/:id/versions/:vId/restore` | Khôi phục về phiên bản  |
+
 
 ### WebSocket
 
@@ -280,11 +299,14 @@ ws://host/yjs/<documentId>?token=<JWT>
 
 ## 🔑 Phân quyền
 
+
 | Hành động                 | Owner | Editor | Viewer |
-| ------------------------- | :---: | :----: | :----: |
-| Xem tài liệu              |  ✅   |   ✅   |   ✅   |
-| Chỉnh sửa nội dung        |  ✅   |   ✅   |   ❌   |
-| Chia sẻ / Quản lý quyền   |  ✅   |   ❌   |   ❌   |
-| Xóa tài liệu              |  ✅   |   ❌   |   ❌   |
-| Lưu / Khôi phục phiên bản |  ✅   |   ✅   |   ❌   |
-| Xuất tài liệu             |  ✅   |   ✅   |   ✅   |
+| ------------------------- | ----- | ------ | ------ |
+| Xem tài liệu              | ✅     | ✅      | ✅      |
+| Chỉnh sửa nội dung        | ✅     | ✅      | ❌      |
+| Chia sẻ / Quản lý quyền   | ✅     | ❌      | ❌      |
+| Xóa tài liệu              | ✅     | ❌      | ❌      |
+| Lưu / Khôi phục phiên bản | ✅     | ✅      | ❌      |
+| Xuất tài liệu             | ✅     | ✅      | ✅      |
+
+
